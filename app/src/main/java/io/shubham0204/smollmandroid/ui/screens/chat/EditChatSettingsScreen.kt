@@ -74,6 +74,7 @@ data class EditableChatSettings(
     val useMmap: Boolean,
     val useMlock: Boolean,
     val isTask: Boolean,
+    val nGpuLayers: Int = 0,
 ) {
     companion object {
         fun fromChat(chat: Chat): EditableChatSettings {
@@ -88,6 +89,7 @@ data class EditableChatSettings(
                 useMmap = chat.useMmap,
                 useMlock = chat.useMlock,
                 isTask = chat.isTask,
+                nGpuLayers = chat.nGpuLayers,
             )
         }
     }
@@ -102,6 +104,7 @@ data class EditableChatSettings(
         existingChat.chatTemplate = chatTemplate
         existingChat.useMmap = useMmap
         existingChat.useMlock = useMlock
+        existingChat.nGpuLayers = nGpuLayers
         return existingChat
     }
 }
@@ -135,6 +138,7 @@ fun EditChatSettingsScreen(
     var chatTemplate by remember { mutableStateOf(settings.chatTemplate) }
     var useMmap by remember { mutableStateOf(settings.useMmap) }
     var useMlock by remember { mutableStateOf(settings.useMlock) }
+    var useGpu by remember { mutableStateOf(settings.nGpuLayers > 0) }
     val context = LocalContext.current
     val totalThreads = Runtime.getRuntime().availableProcessors()
 
@@ -162,6 +166,7 @@ fun EditChatSettingsScreen(
                                         nThreads = nThreads,
                                         useMmap = useMmap,
                                         useMlock = useMlock,
+                                        nGpuLayers = if (useGpu) 99 else 0,
                                     )
                                 if (settings != updatedChat) {
                                     onUpdateChat(updatedChat)
@@ -209,20 +214,6 @@ fun EditChatSettingsScreen(
                     value = systemPrompt,
                     onValueChange = { systemPrompt = it },
                     label = { Text(stringResource(R.string.chat_settings_label_sys_prompt)) },
-                    keyboardOptions =
-                        KeyboardOptions.Default.copy(
-                            capitalization = KeyboardCapitalization.Sentences
-                        ),
-                    maxLines = 5,
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                TextField(
-                    modifier = Modifier.fillMaxWidth(),
-                    value = chatTemplate,
-                    onValueChange = { chatTemplate = it },
-                    label = { Text("Chat template") },
                     keyboardOptions =
                         KeyboardOptions.Default.copy(
                             capitalization = KeyboardCapitalization.Sentences
@@ -368,6 +359,18 @@ fun EditChatSettingsScreen(
                         Text(
                             text =
                                 "Keep the model loaded in RAM for faster performance, but uses more memory and may load slower.",
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    Checkbox(checked = useGpu, onCheckedChange = { useGpu = it })
+                    Column {
+                        Text(text = "NPU/GPU Acceleration", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            text = "Offload model layers to Hexagon NPU or Adreno GPU for faster inference on Snapdragon devices.",
                             style = MaterialTheme.typography.labelSmall,
                         )
                     }

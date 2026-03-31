@@ -1,6 +1,10 @@
 cmake_minimum_required(VERSION 3.22.1)
 project("smollm")
 
+# Hexagon NPU: requires Docker/Podman toolchain build
+# See llama.cpp/docs/backend/snapdragon/README.md
+# Build with: docker run ghcr.io/snapdragon-toolchain/arm64-android:v0.3
+
 add_subdirectory(../../../../llama.cpp llama.cpp)
 set(LLAMA_DIR_RELATIVE "../../../../llama.cpp")
 get_filename_component(LLAMA_DIR ${LLAMA_DIR_RELATIVE} ABSOLUTE)

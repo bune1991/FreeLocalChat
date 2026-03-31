@@ -83,9 +83,14 @@ class SmolLMManager(private val appDB: AppDB) {
                         instance.load(modelPath, params)
                         LOGD("Model loaded")
 
+                        // Try adding system prompt — some models (Gemma) don't support it
                         if (chat.systemPrompt.isNotEmpty()) {
-                            instance.addSystemPrompt(chat.systemPrompt)
-                            LOGD("System prompt added")
+                            try {
+                                instance.addSystemPrompt(chat.systemPrompt)
+                                LOGD("System prompt added")
+                            } catch (e: Exception) {
+                                LOGD("System prompt skipped — model doesn't support system role: ${e.message}")
+                            }
                         }
 
                         if (!chat.isTask) {

@@ -215,6 +215,7 @@ class ChatScreenViewModel(
                     chat.nThreads,
                     chat.useMmap,
                     chat.useMlock,
+                    chat.nGpuLayers,
                 ),
                 onError = { e ->
                     _uiState.update { it.copy(modelLoadingState = ModelLoadingState.FAILURE) }

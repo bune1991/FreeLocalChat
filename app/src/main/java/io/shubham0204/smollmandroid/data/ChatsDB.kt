@@ -80,6 +80,8 @@ data class Chat(
     var nThreads: Int = 4,
     var useMmap: Boolean = true,
     var useMlock: Boolean = false,
+    /** Number of layers to offload to GPU (0 = CPU only, 99 = all layers on GPU) */
+    var nGpuLayers: Int = 0,
     /**
      * The maximum number of tokens that can be used as context to the model This is editable by
      * users in the EditChatSettingsScreen.kt. Its initial value is taken from the GGUF model

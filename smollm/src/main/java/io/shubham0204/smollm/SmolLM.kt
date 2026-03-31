@@ -128,7 +128,7 @@ class SmolLM {
     object DefaultInferenceParams {
         val contextSize: Long = 1024L
         val chatTemplate: String =
-            "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system You are a helpful AI assistant named SmolLM, trained by Hugging Face<|im_end|> ' }}{% endif %}{{'<|im_start|>' + message['role'] + ' ' + message['content'] + '<|im_end|>' + ' '}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant ' }}{% endif %}"
+            "{% for message in messages %}{% if loop.first and messages[0]['role'] != 'system' %}{{ '<|im_start|>system You are a helpful AI assistant.<|im_end|> ' }}{% endif %}{{'<|im_start|>' + message['role'] + ' ' + message['content'] + '<|im_end|>' + ' '}}{% endfor %}{% if add_generation_prompt %}{{ '<|im_start|>assistant ' }}{% endif %}"
     }
 
     /**
@@ -161,6 +161,7 @@ class SmolLM {
         val numThreads: Int = 4,
         val useMmap: Boolean = true,
         val useMlock: Boolean = false,
+        val nGpuLayers: Int = 0, // 0 = CPU only, 99 = offload all layers to GPU
     )
 
     /**
@@ -194,6 +195,7 @@ class SmolLM {
                     params.numThreads,
                     params.useMmap,
                     params.useMlock,
+                    params.nGpuLayers,
                 )
         }
 
@@ -325,6 +327,7 @@ class SmolLM {
         nThreads: Int,
         useMmap: Boolean,
         useMlock: Boolean,
+        nGpuLayers: Int,
     ): Long
 
     private external fun addChatMessage(modelPtr: Long, message: String, role: String)

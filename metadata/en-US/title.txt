@@ -1,1 +1,1 @@
-SmolChat - Run LLMs locally on your mobile
+FreeLocalChat - Run LLMs locally on your mobile

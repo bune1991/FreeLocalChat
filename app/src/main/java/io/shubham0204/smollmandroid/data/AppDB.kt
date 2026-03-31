@@ -63,7 +63,7 @@ class AppDB(context: Context) {
     fun addChat(
         chatName: String,
         chatTemplate: String = "",
-        systemPrompt: String = "You are a helpful assistant.",
+        systemPrompt: String = "",
         llmModelId: Long = -1,
         isTask: Boolean = false,
     ): Chat =

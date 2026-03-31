@@ -1,4 +1,5 @@
 #include "LLMInference.h"
+#include <algorithm>
 #include <android/log.h>
 #include <cstring>
 #include <iomanip>
@@ -10,7 +11,7 @@
 
 void
 LLMInference::loadModel(const char *model_path, float minP, float temperature, bool storeChats, long contextSize,
-                        const char *chatTemplate, int nThreads, bool useMmap, bool useMlock) {
+                        const char *chatTemplate, int nThreads, bool useMmap, bool useMlock, int nGpuLayers) {
     LOGi("loading model with"
          "\n\tmodel_path = %s"
          "\n\tminP = %f"
@@ -20,16 +21,21 @@ LLMInference::loadModel(const char *model_path, float minP, float temperature, b
          "\n\tchatTemplate = %s"
          "\n\tnThreads = %d"
          "\n\tuseMmap = %d"
-         "\n\tuseMlock = %d",
-         model_path, minP, temperature, storeChats, contextSize, chatTemplate, nThreads, useMmap, useMlock);
+         "\n\tuseMlock = %d"
+         "\n\tnGpuLayers = %d",
+         model_path, minP, temperature, storeChats, contextSize, chatTemplate, nThreads, useMmap, useMlock, nGpuLayers);
 
-    // load dynamic backends
+    // load dynamic backends (Vulkan GPU, etc.)
     ggml_backend_load_all();
 
     // create an instance of llama_model
     llama_model_params model_params = llama_model_default_params();
     model_params.use_mmap = useMmap;
     model_params.use_mlock = useMlock;
+    if (nGpuLayers > 0) {
+        model_params.n_gpu_layers = nGpuLayers;
+        LOGi("GPU offloading requested: %d layers", nGpuLayers);
+    }
     _model = llama_model_load_from_file(model_path, model_params);
     if (!_model) {
         LOGe("failed to load model from %s", model_path);
@@ -90,17 +96,43 @@ LLMInference::startCompletion(const char *query) {
     _responseGenerationTime = 0;
     _responseNumTokens = 0;
     addChatMessage(query, "user");
-    // apply the chat-template
+
+    // Build message list, converting system messages to user messages for compatibility
     std::vector<common_chat_msg> messages;
     for (const llama_chat_message& message : _messages) {
         common_chat_msg msg;
-        msg.role    = message.role;
-        msg.content = message.content;
+        if (strcmp(message.role, "system") == 0) {
+            // Convert system prompt to first user message for models that don't support system role
+            msg.role = "user";
+            std::string content = std::string("[System Instructions] ") + message.content;
+            msg.content = content;
+        } else {
+            msg.role    = message.role;
+            msg.content = message.content;
+        }
         messages.push_back(msg);
     }
+
+    // Ensure messages alternate user/assistant — merge consecutive same-role messages
+    std::vector<common_chat_msg> cleanMessages;
+    for (const auto& msg : messages) {
+        if (!cleanMessages.empty() && cleanMessages.back().role == msg.role) {
+            cleanMessages.back().content += "\n" + msg.content;
+        } else {
+            cleanMessages.push_back(msg);
+        }
+    }
+
+    // Log messages for debugging
+    LOGi("startCompletion: %zu messages after cleanup", cleanMessages.size());
+    for (const auto& m : cleanMessages) {
+        LOGi("  role=%s content=%s", m.role.c_str(), m.content.substr(0, 50).c_str());
+    }
+
+    // apply the chat-template — disable jinja to avoid template errors
     common_chat_templates_inputs inputs;
-    inputs.use_jinja      = true;
-    inputs.messages       = messages;
+    inputs.use_jinja      = false;
+    inputs.messages       = cleanMessages;
     auto        templates = common_chat_templates_init(_model, _chatTemplate);
     std::string prompt    = common_chat_templates_apply(templates.get(), inputs).prompt;
     _promptTokens = common_tokenize(llama_model_get_vocab(_model), prompt, true, true);
@@ -197,7 +229,9 @@ LLMInference::completionLoop() {
 
 void
 LLMInference::stopCompletion() {
-    if (_storeChats) {
+    // Note: assistant message is already added in completionLoop() at EOG
+    // Only add it here if the response was stopped early (no EOG received)
+    if (_storeChats && !_response.empty()) {
         addChatMessage(_response.c_str(), "assistant");
     }
     _response.clear();
